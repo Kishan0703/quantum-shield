@@ -1,0 +1,5 @@
+kyber-py==0.4.0
+pycryptodome==3.20.0
+flask==3.0.0
+flask-socketio==5.3.6
+
