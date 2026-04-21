@@ -61,3 +61,4 @@ Open [http://localhost:5173](http://localhost:5173) in your browser. (Note: Vite
 ## Tech Stack
 - **Backend**: Python, Flask-SocketIO, Kyber (ML-KEM), PyCryptodome.
 - **Frontend**: React, Vite, Tailwind CSS, Recharts, Socket.io-client.
+![alt text](image.png)
