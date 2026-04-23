@@ -1,61 +1,49 @@
-import base64
 import os
-import json
+import base64
 from datetime import datetime
 from kyber_py.kyber import Kyber768
 from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
 
-def generate_keypair():
-    """Generates ML-KEM-768 keypair (pk, sk)."""
+def generate_keypair() -> tuple[bytes, bytes]:
     pk, sk = Kyber768.keygen()
     return pk, sk
 
-def encapsulate(pk):
-    """Encapsulates a shared secret using public key pk."""
+def encapsulate(pk: bytes) -> tuple[bytes, bytes]:
     shared_secret, kem_ct = Kyber768.encaps(pk)
     return kem_ct, shared_secret
 
-def decapsulate(sk, kem_ct):
-    """Decapsulates the shared secret using secret key sk and ciphertext kem_ct."""
+def decapsulate(sk: bytes, kem_ct: bytes) -> bytes:
     shared_secret = Kyber768.decaps(sk, kem_ct)
     return shared_secret
 
-def aes_encrypt(shared_secret, plaintext):
-    """Encrypts plaintext using first 16 bytes of shared_secret with AES-128-GCM."""
+def aes_encrypt(shared_secret: bytes, plaintext: bytes) -> bytes:
     key = shared_secret[:16]
-    nonce = get_random_bytes(16)
+    nonce = os.urandom(16)
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-    ciphertext, tag = cipher.encrypt_and_digest(plaintext.encode('utf-8'))
-    # Blob format: nonce(16) + tag(16) + ciphertext
+    ciphertext, tag = cipher.encrypt_and_digest(plaintext)
     return nonce + tag + ciphertext
 
-def aes_decrypt(shared_secret, blob):
-    """Decrypts blob using first 16 bytes of shared_secret with AES-128-GCM."""
-    key = shared_secret[:16]
-    if len(blob) < 32:
-        raise ValueError("Invalid blob size")
-    
+def aes_decrypt(shared_secret: bytes, blob: bytes) -> bytes:
     nonce = blob[:16]
     tag = blob[16:32]
     ciphertext = blob[32:]
-    
+    key = shared_secret[:16]
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-    plaintext = cipher.decrypt_and_verify(ciphertext, tag)
-    return plaintext.decode('utf-8')
+    try:
+        plaintext = cipher.decrypt_and_verify(ciphertext, tag)
+        return plaintext
+    except ValueError:
+        raise ValueError("Authentication failed")
 
-def build_payload(pk, kem_ct, blob):
-    """Builds a JSON-serializable payload with base64-encoded fields."""
-    payload = {
+def build_payload(pk: bytes, kem_ct: bytes, blob: bytes) -> dict:
+    return {
         "pk": base64.b64encode(pk).decode('utf-8'),
         "kem_ct": base64.b64encode(kem_ct).decode('utf-8'),
         "blob": base64.b64encode(blob).decode('utf-8'),
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.utcnow().isoformat() + 'Z'
     }
-    return payload
 
-def parse_payload(data):
-    """Parses a received payload and returns (kem_ct, blob) in bytes."""
-    kem_ct = base64.b64decode(data['kem_ct'])
-    blob = base64.b64decode(data['blob'])
+def parse_payload(data: dict) -> tuple[bytes, bytes]:
+    kem_ct = base64.b64decode(data["kem_ct"])
+    blob = base64.b64decode(data["blob"])
     return kem_ct, blob

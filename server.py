@@ -1,103 +1,108 @@
-import time
-import threading
-import base64
 from flask import Flask, jsonify
 from flask_socketio import SocketIO, emit
-import sim_engine
-import crypto_core
-import command_center
+import threading
+import time
+from command_center import CommandCenter
+from sim_engine import simulate_rsa_attack, simulate_kyber_attack
+import base64
+from datetime import datetime
 
 app = Flask(__name__)
-# Changed async_mode to 'threading' for Python 3.13 compatibility
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+app.config['SECRET_KEY'] = 'quantum-shield-2024'
+# Switched to async_mode='threading' for Python 3.13 compatibility
+sio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# Link command_center to this socketio instance
-command_center.socketio_instance = socketio
-
-# Global session stats
-stats = {
-    "message_count": 0,
-    "total_latency_ms": 0,
-    "start_time": time.time()
-}
+cc = CommandCenter()
+start_time = time.time()
 
 @app.route('/')
-def health_check():
-    return jsonify({"status": "online"})
+def health():
+    return jsonify({"status": "online", "system": "QUANTUM-SHIELD", "version": "1.0"})
 
 @app.route('/api/status')
-def get_status():
-    uptime = time.time() - stats["start_time"]
-    avg_latency = stats["total_latency_ms"] / stats["message_count"] if stats["message_count"] > 0 else 0
-    return jsonify({
-        "message_count": stats["message_count"],
-        "avg_latency_ms": round(avg_latency, 2),
-        "uptime_seconds": int(uptime)
-    })
+def status():
+    stats = cc.get_stats()
+    uptime = int(time.time() - start_time)
+    return jsonify({**stats, "uptime_seconds": uptime})
 
 @app.route('/api/keypair')
-def get_keypair():
-    pk, _ = crypto_core.generate_keypair()
-    return jsonify({"pk": base64.b64encode(pk).decode('utf-8')})
+def keypair():
+    return jsonify({"pk": base64.b64encode(cc.pk).decode(), "pk_size": len(cc.pk)})
 
-@socketio.on('connect')
-def handle_connect():
-    print("[+] Client connected to SocketIO")
-
-@socketio.on('run_simulation')
+@sio.on('run_simulation')
 def handle_simulation():
-    print("[*] Running RSA Attack Simulation...")
-    emit('red_team_breach', {"status": "attacking", "method": "Shor's Algorithm"})
+    # Step 1: attacking
+    sio.emit('red_team_breach', {
+        "status": "attacking",
+        "method": "Shor's Algorithm",
+        "bits": 2048,
+        "progress": 0
+    })
     
-    def run():
-        result = sim_engine.simulate_rsa_attack()
-        socketio.emit('red_team_breach', {
+    def run_sim():
+        # Emit progress updates every 0.5s over 3 seconds
+        for i in range(1, 7):
+            time.sleep(0.5)
+            sio.emit('red_team_breach', {
+                "status": "attacking",
+                "progress": i / 6,
+                "log_line": get_attack_log_line(i)
+            })
+        # Step 2: breached
+        last_message = cc.messages[-1]["plaintext"] if cc.messages else "NO MESSAGES INTERCEPTED"
+        result = simulate_rsa_attack()
+        sio.emit('red_team_breach', {
+            **result,
             "status": "breached",
-            "method": result["method"],
-            "time_ms": result["time_ms"],
-            "bits": result["bits"]
+            "exposed_message": last_message
         })
     
-    threading.Thread(target=run).start()
+    threading.Thread(target=run_sim).start()
 
-@socketio.on('run_lattice_probe')
+def get_attack_log_line(step):
+    lines = [
+        "[0.00s] Quantum register initialised — 2048 qubits",
+        "[0.50s] Quantum Fourier Transform applied",
+        "[1.00s] Period finding: measuring eigenvalue",
+        "[1.50s] GCD(a^(r/2) ± 1, N) computed",
+        "[2.00s] Prime factor candidate: p = 0x9f2e...",
+        "[2.50s] Verification: p × q = N ✓",
+    ]
+    return lines[step - 1] if step <= len(lines) else ""
+
+@sio.on('run_lattice_probe')
 def handle_lattice_probe():
-    print("[*] Running Lattice Probe...")
-    emit('blue_team_block', {"status": "probing"})
+    sio.emit('blue_team_block', {"status": "probing"})
     
-    def run():
-        time.sleep(1) # Small delay for visual effect
-        result = sim_engine.simulate_kyber_attack()
-        socketio.emit('blue_team_block', {
-            "status": "blocked",
-            "reason": result["reason"],
-            "method": result["method"]
-        })
-    
-    threading.Thread(target=run).start()
-
-@socketio.on('message_received')
-def on_message(data):
-    stats["message_count"] += 1
-    stats["total_latency_ms"] += data.get("timing_ms", 0)
+    def run_probe():
+        probe_logs = [
+            "[0.00s] SVP oracle initialised on 768-dimensional lattice",
+            "[0.10s] BKZ reduction: no polynomial-time quantum speedup",
+            "[0.30s] Grover's algorithm: exponential speedup insufficient",
+            "[0.50s] ATTACK INTRACTABLE — no quantum algorithm known",
+        ]
+        for log in probe_logs:
+            time.sleep(0.13)
+            sio.emit('blue_team_block', {"status": "probing", "log_line": log})
+        result = simulate_kyber_attack()
+        sio.emit('blue_team_block', {**result, "status": "blocked"})
+        
+    threading.Thread(target=run_probe).start()
 
 def emit_stats_loop():
     while True:
-        uptime = int(time.time() - stats["start_time"])
-        avg_latency = stats["total_latency_ms"] / stats["message_count"] if stats["message_count"] > 0 else 0
-        socketio.emit('session_stats', {
-            "count": stats["message_count"],
-            "avg_ms": round(avg_latency, 2),
-            "uptime": uptime
-        })
         time.sleep(5)
+        stats = cc.get_stats()
+        uptime = int(time.time() - start_time)
+        sio.emit('session_stats', {**stats, "uptime_seconds": uptime})
 
-def start_server(host='0.0.0.0', port=5001):
-    print(f"[*] Starting Flask-SocketIO server on {host}:{port}")
-    daemon_thread = threading.Thread(target=emit_stats_loop)
-    daemon_thread.daemon = True
-    daemon_thread.start()
-    socketio.run(app, host=host, port=port)
+def run_command_center_loop(port):
+    def emit_fn(event, data):
+        sio.emit(event, data)
+    cc.run(port, emit_fn)
 
-if __name__ == "__main__":
-    start_server()
+def start_server(cc_port=9000, flask_port=5000):
+    threading.Thread(target=run_command_center_loop, args=(cc_port,), daemon=True).start()
+    # Using threading.Thread instead of eventlet.spawn
+    threading.Thread(target=emit_stats_loop, daemon=True).start()
+    sio.run(app, host='0.0.0.0', port=flask_port, debug=False, allow_unsafe_werkzeug=True)

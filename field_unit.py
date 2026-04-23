@@ -1,74 +1,42 @@
 import socket
 import json
 import time
-import base64
-from datetime import datetime
-import crypto_core
+from crypto_core import generate_keypair, encapsulate, aes_encrypt, build_payload
 
-TACTICAL_MESSAGES = [
+SAMPLE_MESSAGES = [
     "TACTICAL: Grid 42-N, Advance at 0600",
-    "LOGISTICS: Ammo depletion at Sector 7",
-    "INTEL: Unidentified drone spotted over Ridge B",
     "STATUS: Unit 4 clear, returning to base",
-    "URGENT: Requesting CAS at coordinates Alpha-9"
+    "INTEL: Unidentified drone spotted over Ridge B",
+    "LOGISTICS: Ammo depletion at Sector 7",
+    "URGENT: Requesting CAS at coordinates Alpha-9",
+    "RECON: Enemy armour column moving south on Route 7",
+    "MEDEVAC: Two casualties at grid 33-F, priority extract"
 ]
 
-def run_field_unit(host='localhost', port=9000, pk=None):
-    print(f"[*] Starting Field Unit. Target: {host}:{port}")
+def send_message(host, port, pk, message_text):
+    t_start = time.time()
+    kem_ct, shared_secret = encapsulate(pk)
+    blob = aes_encrypt(shared_secret, message_text.encode())
+    latency_ms = (time.time() - t_start) * 1000
     
-    # Use provided pk (from Command Center) or generate one (for standalone testing)
-    if pk is None:
-        print("[!] No public key provided. Generating local keypair (Standalone Mode).")
-        pk, _ = crypto_core.generate_keypair()
-    else:
-        print("[+] Using provided Command Center public key.")
-
-    # Retry connection logic
-    sock = None
-    retries = 5
-    for i in range(retries):
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((host, port))
-            print(f"[+] Connected to Command Center at {host}:{port}")
-            break
-        except Exception as e:
-            print(f"[!] Connection failed (attempt {i+1}/{retries}): {e}")
-            if i < retries - 1:
-                time.sleep(2)
-            else:
-                print("[!] Max retries reached. Exiting.")
-                return
+    payload = build_payload(pk, kem_ct, blob)
+    payload["message_preview"] = message_text[:30]
+    payload["latency_ms"] = latency_ms
 
     try:
-        msg_index = 0
-        while True:
-            plaintext = TACTICAL_MESSAGES[msg_index % len(TACTICAL_MESSAGES)]
-            msg_index += 1
-            
-            start_time = time.time()
-            
-            # Hybrid Encryption Pipeline
-            # MUST encapsulate using the Receiver's (Command Center) public key
-            kem_ct, shared_secret = crypto_core.encapsulate(pk)
-            blob = crypto_core.aes_encrypt(shared_secret, plaintext)
-            payload = crypto_core.build_payload(pk, kem_ct, blob)
-            
-            end_time = time.time()
-            timing_ms = (end_time - start_time) * 1000
-            
-            # Send payload
-            payload_str = json.dumps(payload)
-            sock.sendall(payload_str.encode('utf-8') + b'\n')
-            
-            print(f"[+] Sent: {plaintext[:30]}... | Timing: {timing_ms:.2f}ms | CT Size: {len(kem_ct)}B")
-            
-            time.sleep(2)
-    except KeyboardInterrupt:
-        print("\n[*] Field Unit shutting down.")
-    finally:
-        if sock:
-            sock.close()
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((host, port))
+        s.sendall(json.dumps(payload).encode() + b'\n')
+        s.close()
+        print(f"[TX] {message_text[:40]} | {latency_ms:.1f}ms | kem_ct: 1088 bytes")
+    except Exception as e:
+        print(f"[TX ERROR] Failed to send message: {e}")
 
-if __name__ == "__main__":
-    run_field_unit()
+def run(host, port):
+    pk, sk = generate_keypair()
+    print(f"Generated keypair. Public key size: {len(pk)} bytes")
+    
+    while True:
+        for message in SAMPLE_MESSAGES:
+            send_message(host, port, pk, message)
+            time.sleep(3)

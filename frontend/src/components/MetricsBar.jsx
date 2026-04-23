@@ -1,66 +1,69 @@
-import React from 'react';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import React from "react"
+import { useState, useEffect } from 'react'
+import { LineChart, Line } from 'recharts'
 
-function MetricsBar({ metrics }) {
-  // Simulate sparkline data
-  const data = Array.from({ length: 10 }).map((_, i) => ({ value: Math.random() * 5 + 2 }));
+export function MetricsBar({ metrics }) {
+  const [latencyHistory, setLatencyHistory] = useState([])
 
-  const formatUptime = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return [h, m, s].map(v => v < 10 ? "0" + v : v).join(":");
-  };
+  useEffect(() => {
+    if (metrics.avg_latency_ms > 0) {
+      setLatencyHistory(prev => {
+        const next = [...prev, { value: metrics.avg_latency_ms }]
+        return next.slice(-60)
+      })
+    }
+  }, [metrics.avg_latency_ms])
+
+  const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600).toString().padStart(2, '0')
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0')
+    const s = (seconds % 60).toString().padStart(2, '0')
+    return `${h}:${m}:${s}`
+  }
 
   return (
-    <div className="bg-panel border border-border p-4 rounded-lg flex flex-wrap justify-between items-center gap-6 shadow-2xl">
-      <div className="flex gap-8">
-        <div className="flex flex-col">
-          <span className="text-[10px] text-text-muted uppercase font-bold tracking-widest">Total Messages</span>
-          <span className="text-xl font-mono text-text-primary">{metrics.count}</span>
-        </div>
+    <div className="bg-ops-surface border-t border-ops-border h-12 flex items-center px-4">
+      <div className="flex items-center h-full w-full justify-between">
         
-        <div className="flex flex-col">
-          <span className="text-[10px] text-text-muted uppercase font-bold tracking-widest">Avg Latency</span>
-          <div className="flex items-center gap-3">
-            <span className="text-xl font-mono text-green-ok">{metrics.avg_ms}ms</span>
-            <div className="w-16 h-8">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data}>
-                  <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} dot={false} isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+        <div className="flex items-center gap-4">
+          <span className="font-mono text-[10px] text-ops-secondary uppercase tracking-widest">MESSAGES RECEIVED</span>
+          <span className="font-mono text-sm text-ops-primary">{metrics.message_count}</span>
+        </div>
+
+        <div className="h-6 w-px bg-ops-border" />
+
+        <div className="flex items-center gap-4">
+          <span className="font-mono text-[10px] text-ops-secondary uppercase tracking-widest">AVG LATENCY</span>
+          <div className="flex items-center gap-2">
+            <LineChart width={80} height={28} data={latencyHistory}>
+              <Line type="monotone" dataKey="value" stroke="#52c48a" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+            </LineChart>
+            <span className="font-mono text-sm text-ops-greenText">{metrics.avg_latency_ms}ms</span>
           </div>
         </div>
 
-        <div className="flex flex-col">
-          <span className="text-[10px] text-text-muted uppercase font-bold tracking-widest">Session Uptime</span>
-          <span className="text-xl font-mono text-text-primary">{formatUptime(metrics.uptime)}</span>
-        </div>
-      </div>
+        <div className="h-6 w-px bg-ops-border" />
 
-      <div className="flex gap-3">
-        <div className="flex flex-col items-end">
-          <span className="text-[9px] text-text-muted uppercase font-black">Legacy Stack</span>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] font-bold text-red-team">RSA-2048</span>
-            <span className="bg-red-team/10 text-red-team text-[8px] px-1.5 py-0.5 rounded border border-red-team/20 font-black">VULNERABLE</span>
-          </div>
+        <div className="flex items-center gap-4">
+          <span className="font-mono text-[10px] text-ops-secondary uppercase tracking-widest">UPTIME</span>
+          <span className="font-mono text-sm text-ops-primary">{formatTime(metrics.uptime_seconds)}</span>
         </div>
 
-        <div className="w-px h-8 bg-border"></div>
+        <div className="h-6 w-px bg-ops-border" />
 
-        <div className="flex flex-col items-end">
-          <span className="text-[9px] text-text-muted uppercase font-black">Quantum Shield</span>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] font-bold text-green-ok">ML-KEM-768</span>
-            <span className="bg-green-ok/10 text-green-ok text-[8px] px-1.5 py-0.5 rounded border border-green-ok/20 font-black">NIST LEVEL 3</span>
-          </div>
+        <div className="flex items-center gap-4">
+          <span className="font-mono text-[10px] text-ops-secondary uppercase tracking-widest">RSA-2048</span>
+          <span className="font-mono text-sm text-ops-amberText">⚠ VULNERABLE</span>
         </div>
+
+        <div className="h-6 w-px bg-ops-border" />
+
+        <div className="flex items-center gap-4">
+          <span className="font-mono text-[10px] text-ops-secondary uppercase tracking-widest">ML-KEM-768</span>
+          <span className="font-mono text-sm text-ops-greenText">● NIST LEVEL 3</span>
+        </div>
+
       </div>
     </div>
-  );
+  )
 }
-
-export default MetricsBar;
