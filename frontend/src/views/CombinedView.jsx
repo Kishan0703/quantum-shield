@@ -15,6 +15,7 @@ export function CombinedView({ connected = false, messages = [], onSend }) {
   const [breachState, setBreachState] = useState('none')  // 'none' | 'breached' | 'shielded'
   const [attackPhase, setAttackPhase] = useState('idle')  // 'idle' | 'running' | 'breached'
   const [probePhase, setProbePhase] = useState('idle')    // 'idle' | 'running' | 'blocked'
+  const [lastTransmittedMessage, setLastTransmittedMessage] = useState('')
   
   const [time, setTime] = useState(new Date().toLocaleTimeString('en-GB', { hour12: false }) + ' UTC')
 
@@ -79,12 +80,14 @@ export function CombinedView({ connected = false, messages = [], onSend }) {
           connected={connected} 
           onSend={handleSendMessage} 
           securityMode={securityMode} 
+          onMessageSent={(text) => setLastTransmittedMessage(text)}
         />
       </div>
       <div style={{ borderRight: '1px solid #1e2d40', overflowY: 'auto' }}>
         <InterceptionMonitor 
           messages={messages} 
           breachState={breachState || 'none'} 
+          lastTransmittedMessage={lastTransmittedMessage}
         />
       </div>
       <div style={{ overflowY: 'auto' }}>
@@ -96,6 +99,7 @@ export function CombinedView({ connected = false, messages = [], onSend }) {
           setProbePhase={setProbePhase}
           setBreachState={setBreachState}
           messages={messages}
+          lastTransmittedMessage={lastTransmittedMessage}
         />
       </div>
 

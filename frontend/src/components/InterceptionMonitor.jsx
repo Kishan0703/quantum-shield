@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react"
 import { PanelHeader } from './PanelHeader'
 import { HexDump } from './HexDump'
 
-export function InterceptionMonitor({ messages, breachState }) {
+export function InterceptionMonitor({ messages, breachState, lastTransmittedMessage = '' }) {
   const [activeTab, setActiveTab] = useState('raw')
   const latestMessage = messages[messages.length - 1]
 
@@ -56,7 +56,7 @@ export function InterceptionMonitor({ messages, breachState }) {
                   INTERCEPTED PLAINTEXT — RSA-2048 COMPROMISED
                 </div>
                 <div style={{ margin: '6px 0', color: '#c9d4e0' }}>
-                  "{latestMessage?.text || "TACTICAL: Grid 42-N, Advance at 0600"}"
+                  "{lastTransmittedMessage || "TACTICAL: Grid 42-N, Advance at 0600"}"
                 </div>
                 <div>p = 0x9f2e8c1a4d7b3f0e52a81c96...</div>
                 <div>q = 0xa31cb7f208e9d15c3b74f201...</div>

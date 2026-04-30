@@ -44,7 +44,7 @@ const ACTIVATION_LOGS = [
   '[QUANTUM-SHIELD: ACTIVE]',
 ]
 
-export function SecurityPanel({ securityMode = 'legacy', attackPhase = 'idle', setAttackPhase, probePhase = 'idle', setProbePhase, setBreachState, messages = [] }) {
+export function SecurityPanel({ securityMode = 'legacy', attackPhase = 'idle', setAttackPhase, probePhase = 'idle', setProbePhase, setBreachState, messages = [], lastTransmittedMessage = '' }) {
   const [visibleAttackLogs, setVisibleAttackLogs] = useState([])
   const [visibleProbeLogs, setVisibleProbeLogs] = useState([])
   const [visibleActivationLogs, setVisibleActivationLogs] = useState([])
@@ -129,7 +129,7 @@ export function SecurityPanel({ securityMode = 'legacy', attackPhase = 'idle', s
     setBreachState('none')
   }
 
-  const lastMessageText = messages.length > 0 ? (messages[messages.length - 1].text || "NO CONTENT") : "TACTICAL: Grid 42-N, Advance at 0600"
+  const lastMessageText = lastTransmittedMessage || "TACTICAL: Grid 42-N, Advance at 0600"
 
   return (
     <div className="flex flex-col h-full bg-[#0d1220]">

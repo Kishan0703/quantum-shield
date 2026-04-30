@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from "react"
 import { PanelHeader } from './PanelHeader'
 
-export function TransmissionConsole({ connected, onSend, securityMode }) {
+export function TransmissionConsole({ connected, onSend, securityMode, onMessageSent }) {
   const [inputText, setInputText] = useState('')
   const [txLog, setTxLog] = useState([])
+  const [lastTransmittedMessage, setLastTransmittedMessage] = useState('')
 
   const handleSend = () => {
     if (!inputText.trim()) return
     onSend(inputText)
+    
+    if (onMessageSent) {
+      onMessageSent(inputText)
+    }
+    setLastTransmittedMessage(inputText)
     
     const newLog = {
       time: new Date().toISOString().slice(11, 19) + ' UTC',
