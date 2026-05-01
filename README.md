@@ -27,4 +27,3 @@ Open browser: http://<LAPTOP-B-IP>:3000/?view=red
 /?view=red   — Field unit / Red Team console (Laptop A)
 /?view=blue  — Command center / Blue Team console (Laptop B)
 /?view=both  — Combined demo / judge walkthrough
-
